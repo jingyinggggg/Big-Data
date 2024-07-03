@@ -92,3 +92,53 @@ country_aggregated['Daily_Recovery_Cases'] = country_aggregated.groupby('Country
 country_aggregated['Daily_Deaths'] = country_aggregated.groupby('Country')['Deaths'].diff().fillna(0).astype(int)
 
 print(country_aggregated.tail())
+
+##############################################################################################################
+# Data sampling
+from sklearn.model_selection import train_test_split
+
+# Choose 2 vaccine for demonstration in vaccine dataset
+vaccine_A = 'Oxford/AstraZeneca, Sinovac'
+vaccine_B = 'Pfizer/BioNTech'
+
+# Subset the dataset to include only corresponding to the selected country
+selected_vaccine_dataset = country_vaccine[(country_vaccine['vaccines'] == vaccine_A) | (country_vaccine['vaccines'] == vaccine_B)]
+
+# Data sampling for aggregated COVID-19 dataset
+X = selected_vaccine_dataset[['total_vaccinations', 'people_vaccinated', 'people_fully_vaccinated']]
+y = selected_vaccine_dataset['vaccines']
+
+X_train_vac, X_test_vac, y_train_vac, y_test_vac = train_test_split(
+    X, y, test_size=0.35, random_state=50
+)
+
+print("Data sampling for vaccine dataset:\n")
+print(X_train_vac.shape)
+print(X_test_vac.shape)
+print(y_train_vac.shape)
+print(y_test_vac.shape)
+
+print(y_train_vac.head(), "\n")
+
+# Choose 2 country for demonstration in aggregated COVID-19 dataset
+country_A = 'Malaysia'
+country_B = 'Singapore'
+
+# Subset the dataset to include only corresponding to the selected country
+selected_dataset = country_aggregated[(country_aggregated['Country'] == country_A) | (country_aggregated['Country'] == country_B)]
+
+# Data sampling for aggregated COVID-19 dataset
+X = selected_dataset[['Confirmed', 'Deaths', 'Recovered']]
+y = selected_dataset['Country']
+
+X_train_agg, X_test_agg, y_train_agg, y_test_agg = train_test_split(
+    X, y, test_size=0.35, random_state=50
+)
+
+print("Data sampling for aggregated COVID-19 dataset:\n")
+print(X_train_agg.shape)
+print(X_test_agg.shape)
+print(y_train_agg.shape)
+print(y_test_agg.shape)
+
+print(y_train_agg.head(), "\n")
