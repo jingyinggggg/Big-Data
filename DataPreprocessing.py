@@ -72,3 +72,23 @@ vaccine_data.info()
 print("\n")
 aggregated_COVID19_data.info()
 print("\n")
+
+##############################################################################################################
+# Data reduction
+# Removing less relevant columns
+print("Default columns of vaccine dataset:\n")
+country_vaccine.info()
+
+country_vaccine = country_vaccine.drop(['iso_code', 'source_name', 'source_website'], axis=1)
+
+# Display the remaining columns to verify
+print("\nRemaining columns of vaccine dataset:\n")
+country_vaccine.info()
+
+# Create new features(columns)
+# Calculate daily new cases, recovery cases and deaths
+country_aggregated['Daily_New_Cases'] = country_aggregated.groupby('Country')['Confirmed'].diff().fillna(0).astype(int)
+country_aggregated['Daily_Recovery_Cases'] = country_aggregated.groupby('Country')['Recovered'].diff().fillna(0).astype(int)
+country_aggregated['Daily_Deaths'] = country_aggregated.groupby('Country')['Deaths'].diff().fillna(0).astype(int)
+
+print(country_aggregated.tail())
