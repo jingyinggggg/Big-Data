@@ -142,3 +142,103 @@ print(y_train_agg.shape)
 print(y_test_agg.shape)
 
 print(y_train_agg.head(), "\n")
+
+##############################################################################################################
+# Data transformation
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, recall_score, f1_score, precision_score, ConfusionMatrixDisplay
+
+# Vaccine dataset
+# Feature Scaling
+# Transform features so they have a similar scale or distribution
+# StandardScaler() means standardizes features by removing the mean and scaling to unit variance. It works by computing the mean and standard deviation of each feature in the training set and then scaling the features based on these statistics.
+scaler = StandardScaler()
+X_train_vac = scaler.fit_transform(X_train_vac)
+X_test_vac = scaler.transform(X_test_vac)
+
+# Data Transformation
+le_vac = LabelEncoder()
+le_vac.fit(y_train_vac)
+
+y_train_vac_encoded = le_vac.transform(y_train_vac)
+y_test_vac_encoded = le_vac.transform(y_test_vac)
+
+# Model training with RandomForestClassifier
+rf_vac = RandomForestClassifier(n_estimators=100, random_state=50)
+model_vac = rf_vac.fit(X_train_vac, y_train_vac_encoded)
+
+train_preds_vac = model_vac.predict(X_train_vac)
+test_preds_vac = model_vac.predict(X_test_vac)
+
+# Evaluation
+print("Vaccine Data")
+print("Train accuracy:", accuracy_score(y_train_vac_encoded, train_preds_vac))
+print("Test accuracy:", accuracy_score(y_test_vac_encoded, test_preds_vac), "\n")
+
+cm_vac_train = confusion_matrix(y_train_vac_encoded, train_preds_vac)
+print("Confusion matrix for Training:\n", cm_vac_train, "\n")
+ConfusionMatrixDisplay(cm_vac_train).plot()
+
+cm_vac_test = confusion_matrix(y_test_vac_encoded, test_preds_vac)
+print("Confusion matrix for Testing:\n", cm_vac_test, "\n")
+ConfusionMatrixDisplay(cm_vac_test).plot()
+
+print("Recall score for Training:", recall_score(y_train_vac_encoded, train_preds_vac, average='weighted'))
+print("Recall score for Testing:", recall_score(y_test_vac_encoded, test_preds_vac, average='weighted'), "\n")
+
+print("F1 score for Training:", f1_score(y_train_vac_encoded, train_preds_vac, average='weighted'))
+print("F1 score for Testing:", f1_score(y_test_vac_encoded, test_preds_vac, average='weighted'), "\n")
+
+print("Precision score for Training:", precision_score(y_train_vac_encoded, train_preds_vac, average='weighted'))
+print("Precision score for Testing:", precision_score(y_test_vac_encoded, test_preds_vac, average='weighted'), "\n")
+
+#-------------------------------------------------------------------------------------------------------------
+
+# Aggregated COVID-19 dataset
+# Feature Scaling
+# Transform features so they have a similar scale or distribution
+# StandardScaler() means standardizes features by removing the mean and scaling to unit variance. It works by computing the mean and standard deviation of each feature in the training set and then scaling the features based on these statistics.
+scaler = StandardScaler()
+X_train_agg = scaler.fit_transform(X_train_agg)
+X_test_agg = scaler.transform(X_test_agg)
+
+# Data Transformation
+le_agg = LabelEncoder()
+le_agg.fit(y_train_agg)
+
+y_train_agg_encoded = le_agg.transform(y_train_agg)
+y_test_agg_encoded = le_agg.transform(y_test_agg)
+
+# Model training with RandomForestClassifier
+rf_agg = RandomForestClassifier(n_estimators=100, random_state=50)
+model_agg = rf_agg.fit(X_train_agg, y_train_agg_encoded)
+
+train_preds_agg = model_agg.predict(X_train_agg)
+test_preds_agg = model_agg.predict(X_test_agg)
+
+# Evaluation
+print("Aggregated COVID-19 Data")
+print("Train accuracy:", accuracy_score(y_train_agg_encoded, train_preds_agg))
+print("Test accuracy:", accuracy_score(y_test_agg_encoded, test_preds_agg), "\n")
+
+cm_agg_train = confusion_matrix(y_train_agg_encoded, train_preds_agg)
+print("Confusion matrix for Training:\n", cm_agg_train, "\n")
+ConfusionMatrixDisplay(cm_agg_train).plot()
+
+cm_agg_test = confusion_matrix(y_test_agg_encoded, test_preds_agg)
+print("Confusion matrix for Testing:\n", cm_agg_test, "\n")
+ConfusionMatrixDisplay(cm_agg_test).plot()
+
+print("Recall score for Training:", recall_score(y_train_agg_encoded, train_preds_agg, average='weighted'))
+print("Recall score for Testing:", recall_score(y_test_agg_encoded, test_preds_agg, average='weighted'), "\n")
+
+print("F1 score for Training:", f1_score(y_train_agg_encoded, train_preds_agg, average='weighted'))
+print("F1 score for Testing:", f1_score(y_test_agg_encoded, test_preds_agg, average='weighted'), "\n")
+
+print("Precision score for Training:", precision_score(y_train_agg_encoded, train_preds_agg, average='weighted'))
+print("Precision score for Testing:", precision_score(y_test_agg_encoded, test_preds_agg, average='weighted'), "\n")
+
+#-------------------------------------------------------------------------------------------------------------
+
