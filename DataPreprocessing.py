@@ -242,3 +242,25 @@ print("Precision score for Testing:", precision_score(y_test_agg_encoded, test_p
 
 #-------------------------------------------------------------------------------------------------------------
 
+from scipy.stats import linregress
+
+# Hypothesis testing for trend on vaccine
+# Summarize daily vaccinations across all countries
+vaccine_trend = vaccine_data.groupby('date')['daily_vaccinations'].sum()
+
+# Perform linear regression to test trend significance
+slope1, _, _, p_value1, std_err1 = linregress(
+    np.arange(len(vaccine_trend)), vaccine_trend.values
+)
+
+# Calculate t-statistics
+t_stat1 = slope1 / std_err1
+
+# Output the results
+print("Hypothesis Testing for trend on vaccine:")
+print("P-value for trend analysis on vaccine:", p_value1)
+print("T-statistics for trend analysis on vaccine:", t_stat1)
+if p_value1 < 0.05:
+    print("Reject the null hypothesis: The vaccination rate has significantly increased during COVID-19.")
+else:
+    print("Fail to reject the null hypothesis: The vaccination rate does not significantly increase during COVID-19.")
