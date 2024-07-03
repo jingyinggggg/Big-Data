@@ -285,3 +285,24 @@ if p_value2 < 0.05:
     print("Reject the null hypothesis: The death rate over time has significantly decrease after vaccination.")
 else:
     print("Fail to reject the null hypothesis: death rate over time does not has significantly decrease after vaccination.")
+
+# Hypothesis testing for effectiveness of vaccine
+# Summarize daily new cases
+new_cases_trend = aggregated_COVID19_data.groupby('Date')['Daily_New_Cases'].sum()
+
+# Perform linear regression to test trend significance
+slope3, _, _, p_value3, std_err3 = linregress(
+    np.arange(len(new_cases_trend)), new_cases_trend.values
+)
+
+# Calculate t-statistics
+t_stat3 = slope3 / std_err3
+
+# Output the result
+print("\nHypothesis testing for effectiveness of covid-19 vaccine:")
+print("P-value for effectiveness of vaccine:", p_value3)
+print("T-statistics for effectiveness of vaccine:", t_stat3)
+if p_value3 < 0.05:
+    print("Reject the null hypothesis: The current vaccine deployed worldwide is highly effective in controlling COVID-19 transmission.")
+else:
+    print("Fail to reject the null hypothesis: The current vaccine deployed worldwide is not effective in controlling COVID-19 transmission.")
