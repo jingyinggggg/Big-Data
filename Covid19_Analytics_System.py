@@ -142,3 +142,22 @@ def descriptive_analysis_recovered():
     descriptive_stats = date_filter['Recovered'].describe()
     st.write("Descriptive Analysis of Weekly Recovered Cases:")
     st.write(descriptive_stats)
+
+# 4 ------------------------- Total death vs cases chart ---------------------------------------------
+
+def total_deaths_vs_cases_chart():
+    total_data = cases_data.groupby('Country').agg({'Deaths': 'sum', 'Confirmed': 'sum'}).reset_index()
+    fig = px.scatter(total_data, x='Confirmed', y='Deaths', color='Country', 
+                     size='Deaths', hover_name='Country', log_x=True, log_y=True,
+                     title='Total Deaths vs Cases by Country')
+    st.plotly_chart(fig)
+
+# # 5 ------------------------- Case by Country ---------------------------------------------
+
+def cases_by_country_chart():
+    cases_by_country_data = cases_data.groupby('Country')['Confirmed'].sum().reset_index()
+    fig = px.choropleth(cases_by_country_data, locations='Country', locationmode='country names', 
+                        color='Confirmed', hover_name='Country', 
+                        title='Number of Cases by Country',
+                        color_continuous_scale=px.colors.sequential.Plasma)
+    st.plotly_chart(fig)
