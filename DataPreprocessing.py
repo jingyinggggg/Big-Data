@@ -264,3 +264,24 @@ if p_value1 < 0.05:
     print("Reject the null hypothesis: The vaccination rate has significantly increased during COVID-19.")
 else:
     print("Fail to reject the null hypothesis: The vaccination rate does not significantly increase during COVID-19.")
+
+# Hypothesis testing for death rate over time
+# Summarize daily deaths case across all country
+deaths_trend = aggregated_COVID19_data.groupby('Date')['Daily_Deaths'].sum()
+
+# Perform linear regression to test trend significance
+slope2, _, _, p_value2, std_err2 = linregress(
+    np.arange(len(deaths_trend)), deaths_trend.values
+)
+
+# Calculate t-statistics
+t_stat2 = slope2 / std_err2
+
+# Output the result
+print("\nHypothesis Testing for death rate over time:")
+print("P-value for trend analysis on deaths:", p_value2)
+print("T-statistics for trend analysis on deaths:", t_stat2)
+if p_value2 < 0.05:
+    print("Reject the null hypothesis: The death rate over time has significantly decrease after vaccination.")
+else:
+    print("Fail to reject the null hypothesis: death rate over time does not has significantly decrease after vaccination.")
