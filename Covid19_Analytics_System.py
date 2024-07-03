@@ -6,6 +6,62 @@ from sklearn.linear_model import LinearRegression  # For linear regression
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
 
+# Page configuration
+st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layout="wide")
+
+# Load CSS Style
+with open('style.css') as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+# Load datasets
+cases_data = pd.read_csv('C:/Users/ongyu/OneDrive/Desktop/Sem 3/Big Data Programming/Assignment/countries-aggregated.csv')
+vaccine_data = pd.read_csv('C:/Users/ongyu/OneDrive/Desktop/Sem 3/Big Data Programming/Assignment/country_vaccinations.csv')
+
+# Process Data for Analysis
+cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
+vaccine_data['date'] = pd.to_datetime(vaccine_data['date'], format='%Y-%m-%d', errors='coerce')
+
+# Extract year from date
+cases_data['Year'] = cases_data['Date'].dt.year
+vaccine_data['Year'] = vaccine_data['date'].dt.year
+
+# Filter data for the year 2020
+cases_data_2020 = cases_data[cases_data['Year'] == 2020]
+
+##########################################
+
+# Sidebar Filters
+st.sidebar.header("Please Filter Here:")
+
+# Year filter
+available_years = cases_data["Year"].dropna().unique()
+selected_years = st.sidebar.multiselect("Select the Year:", options=available_years, default=list(available_years))
+
+# Country filter
+available_countries = cases_data["Country"].unique()
+selected_countries = st.sidebar.multiselect("Select the Country:", options=available_countries, default=list(available_countries))
+
+# Filter data based on sidebar input
+year_filter = cases_data[cases_data["Year"].isin(selected_years)] if selected_years else cases_data
+country_filter = year_filter[year_filter["Country"].isin(selected_countries)] if selected_countries else year_filter
+
+# Date range filter
+min_date = cases_data["Date"].min().to_pydatetime()
+max_date = cases_data["Date"].max().to_pydatetime()
+selected_date_range = st.sidebar.slider("Select the Date Range:", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+
+date_filter = country_filter[(country_filter["Date"] >= selected_date_range[0]) & (country_filter["Date"] <= selected_date_range[1])]
+
+# Define sidebar
+with st.sidebar:
+    menu_choice = option_menu("Main Menu", ["Home", 'Death Rate Charts', "Weekly Confirmed Case", 'Weekly Recovered Case', 'Cases by Country',
+                                            'Vaccine by Country', 'Total Death VS Cases'], 
+        icons=['house', 'graph-down', 'virus', 'bandaid', 'globe-americas','heart-pulse', 'journals'], menu_icon="cast", default_index=1)
+
+# Main title and welcome message
+st.title("Covid-19 Analytics Dashboard")
+st.write("Welcome to the Covid-19 Analytics Dashboard. Use the filters in the sidebar to explore the data.")
+
 # Define chart functions
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
 
@@ -152,7 +208,7 @@ def total_deaths_vs_cases_chart():
                      title='Total Deaths vs Cases by Country')
     st.plotly_chart(fig)
 
-# # 5 ------------------------- Case by Country ---------------------------------------------
+# 5 ------------------------- Case by Country ---------------------------------------------
 
 def cases_by_country_chart():
     cases_by_country_data = cases_data.groupby('Country')['Confirmed'].sum().reset_index()
@@ -161,3 +217,100 @@ def cases_by_country_chart():
                         title='Number of Cases by Country',
                         color_continuous_scale=px.colors.sequential.Plasma)
     st.plotly_chart(fig)
+
+# 6 ------------------------- Vaccine by country ---------------------------------------------
+    
+def vaccine_by_country_chart():
+    vaccine_by_country_data = vaccine_data.groupby('country')['vaccines'].first().reset_index()
+    fig = px.bar(vaccine_by_country_data, x='country', y='vaccines', title='Vaccine Types by Country', 
+                 labels={'country': 'Country', 'vaccines': 'Vaccine Types'})
+    st.plotly_chart(fig)
+
+# Define main content based on sidebar choice
+if menu_choice == "Home":
+    st.title("Death Rate Chart")
+    death_rate_chart()
+    
+    # Create columns for layout
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("Weekly Confirmed Case")
+        weekly_confirmed_chart()
+    with col2:
+        st.markdown("Weekly Recovered Case")
+        weekly_recovered_chart()
+
+    st.markdown("### Cases by Country")
+    cases_by_country_chart()
+
+    st.markdown(" ### Vaccine by Country")
+    vaccine_by_country_chart()
+    
+    st.markdown(" ### Total death VS Cases")
+    total_deaths_vs_cases_chart()
+        
+elif menu_choice == "Death Rate Charts":
+    st.title("Death Rate Charts")
+    death_rate_chart()
+    
+    # Define column for charts
+    colA, colB = st.columns(2)
+    with colA:
+        st.markdown("### Actual Death Rate Chart")
+        actual_death_rate_chart()
+    with colB:
+        st.markdown("### Predicted Death Rate Chart")
+        predicted_death_rate_chart()
+    
+    st.markdown("### Descriptive Analysis of Death Rate")
+    descriptive_analysis_chart()
+    
+elif menu_choice == "Weekly Confirmed Case":
+    st.title("Weekly Confirmed Case")
+    weekly_confirmed_chart()
+    
+    # Define column for charts
+    colC, colD = st.columns(2)
+    with colC:
+        st.markdown("### Actual Weekly Confirmed Case")
+        actual_weekly_confirmed_chart_2020()
+    with colD:
+        st.markdown("### Predicted Weekly Confirmed Case")
+        predict_weekly_confirmed()
+    descriptive_analysis_confirmed()
+    
+elif menu_choice == "Weekly Recovered Case":
+    st.title("Weekly Recovered Case")
+    weekly_recovered_chart()
+    
+    # Define column
+    colE, colF = st.columns(2)
+    with colE:
+        st.markdown("Actual Weekly Recovered Case")
+        actual_weekly_recovered_chart_2020()
+    with colF:
+        st.markdown("Predicted Weekly Recovered Case")
+        predict_weekly_recovered()
+    descriptive_analysis_recovered()
+
+elif menu_choice == "Cases by Country":
+    st.title("Cases by Country Chart")
+    cases_by_country_chart()
+    
+elif menu_choice == "Vaccine by Country":
+    st.title("Vaccine by Country Chart")
+    vaccine_by_country_chart()
+    
+elif menu_choice == "Total Death VS Cases":
+    st.title("Total Death VS Cases Chart")
+    total_deaths_vs_cases_chart()
+# Footer
+footer = """<style>
+a:hover, a:active { color: red; background-color: transparent; text-decoration: underline; }
+.footer { position: fixed; left: 0; height:5%; bottom: 0; width: 100%; background-color: #243946; color: white; text-align: center; }
+</style>
+<div class="footer">
+<p>From Ng Jing Ying, Ong Yu Chin, Tan Guan Yi, and Yew Zheng Hong <a style='display: block; text-align: center;' </a></p>
+</div>"""
+st.markdown(footer, unsafe_allow_html=True)
