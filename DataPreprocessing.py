@@ -306,3 +306,28 @@ if p_value3 < 0.05:
     print("Reject the null hypothesis: The current vaccine deployed worldwide is highly effective in controlling COVID-19 transmission.")
 else:
     print("Fail to reject the null hypothesis: The current vaccine deployed worldwide is not effective in controlling COVID-19 transmission.")
+
+##############################################################################################################
+
+# mongoDB data storage
+from pymongo import MongoClient
+
+# MongoDB connection details
+client = MongoClient('mongodb://localhost:27017/')  # Change the URI to your MongoDB instance
+db = client['vaccine_analysis']  # Database name
+
+# Collections for cleaned data
+collection_vaccine_cleaned = db['vaccine_data_cleaned']
+collection_aggregated_cleaned = db['aggregated_data_cleaned']
+
+# Convert cleaned data to dictionary format
+cleaned_vaccine_data = vaccine_data.to_dict('records')
+cleaned_aggregated_data = aggregated_COVID19_data.to_dict('records')
+
+# Insert cleaned data into MongoDB collections
+collection_vaccine_cleaned.insert_many(cleaned_vaccine_data)
+collection_aggregated_cleaned.insert_many(cleaned_aggregated_data)
+
+# Verify the insertion of cleaned data
+print(f"Cleaned vaccine data inserted: {collection_vaccine_cleaned.count_documents({})}")
+print(f"Cleaned aggregated COVID-19 data inserted: {collection_aggregated_cleaned.count_documents({})}")
