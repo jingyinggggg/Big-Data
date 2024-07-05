@@ -13,9 +13,13 @@ st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layou
 with open('style.css') as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+# MongoDB connection
+client = MongoClient("mongodb://localhost:27017")
+db = client["vaccine_analysis"]
+
 # Load datasets
-cases_data = pd.read_csv('C:/Users/ongyu/OneDrive/Desktop/Sem 3/Big Data Programming/Assignment/countries-aggregated.csv')
-vaccine_data = pd.read_csv('C:/Users/ongyu/OneDrive/Desktop/Sem 3/Big Data Programming/Assignment/country_vaccinations.csv')
+cases_data = pd.DataFrame(list(db["aggregated_data_cleaned"].find()))
+vaccine_data = pd.DataFrame(list(db["vaccine_data_cleaned"].find()))
 
 # Process Data for Analysis
 cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
@@ -68,6 +72,7 @@ st.write("Welcome to the Covid-19 Analytics Dashboard. Use the filters in the si
 # Predicting 2021 Death Rate
 # Assuming daily data and predicting using Linear Regression
 cases_data_2020['DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
+
 X = cases_data_2020[['DayOfYear']]
 y = cases_data_2020['Deaths']
 
@@ -83,13 +88,15 @@ predicted_data_2021 = pd.DataFrame({
 })
 
 def death_rate_chart():
-    filtered_data = date_filter.groupby('Date').sum().reset_index()
+    #filtered_data = date_filter.groupby('Date').sum().reset_index()
+    filtered_data = date_filter.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
+
     fig = px.area(filtered_data, x='Date', y='Deaths', title='Cumulative Death Rates Over Time', 
                   labels={'Deaths': 'Cumulative Deaths'})
     st.plotly_chart(fig)
     
 def actual_death_rate_chart():
-    filtered_data = cases_data_2020.groupby('Date').sum().reset_index()
+    filtered_data = cases_data_2020.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
     filtered_data['Death Rate'] = filtered_data['Deaths']
     fig = px.bar(filtered_data, x='Date', y='Death Rate', title='Actual Death Rate Over Time (2020)')
     st.plotly_chart(fig)
