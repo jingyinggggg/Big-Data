@@ -185,40 +185,43 @@ def descriptive_analysis_confirmed():
     
 # 3 ------------------------- Weekly Recovered Chart ---------------------------------------------
 
+def get_week_end(date):
+    return date + pd.DateOffset(days=(6 - date.weekday()))
+
+date_filter['Week_End'] = date_filter['Date'].apply(get_week_end)
+
 def weekly_recovered_chart():
-    weekly_recovered_data = date_filter.set_index('Date').resample('W').sum().reset_index()
-    fig = px.line(weekly_recovered_data, x='Date', y='Recovered', title='Weekly Recovered Cases')
+    weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
+    fig = px.line(weekly_recovered_data, x='Week_End', y='Recovered', title='Weekly Recovered Cases')
     st.plotly_chart(fig)
-    
+
 def actual_weekly_recovered_chart_2020():
-    weekly_recovered_data_2020 = cases_data_2020.set_index('Date').resample('W').sum().reset_index()
-    fig = px.line(weekly_recovered_data_2020, x='Date', y='Recovered', title='Actual Weekly Recovered Cases for 2020')
+    data_2020 = date_filter[date_filter['Date'].dt.year == 2020]
+    weekly_recovered_data_2020 = data_2020.groupby('Week_End')['Recovered'].sum().reset_index()
+    fig = px.line(weekly_recovered_data_2020, x='Week_End', y='Recovered', title='Actual Weekly Recovered Cases for 2020')
     st.plotly_chart(fig)
 
 def predict_weekly_recovered():
-    weekly_recovered_data = date_filter.set_index('Date').resample('W').sum().reset_index()
-    weekly_recovered_data['WeekOfYear'] = weekly_recovered_data['Date'].dt.isocalendar().week
+    weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
+    weekly_recovered_data['WeekOfYear'] = weekly_recovered_data['Week_End'].dt.isocalendar().week
     X = weekly_recovered_data[['WeekOfYear']]
     y = weekly_recovered_data['Recovered']
-
     model = LinearRegression()
     model.fit(X, y)
-
-    # Create a DataFrame for 2021 prediction
     weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
     predicted_recovered_2021 = model.predict(weeks_in_2021)
-    predicted_data_2021 = pd.DataFrame({
-        'Week': weeks_in_2021.flatten(),
-        'Predicted Recovered': predicted_recovered_2021
-    })
-
-    fig = px.bar(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
+    predicted_data_2021 = pd.DataFrame({'Week': weeks_in_2021.flatten(), 'Predicted Recovered Cases': predicted_recovered_2021})
+    fig = px.bar(predicted_data_2021, x='Week', y='Predicted Recovered Cases', title='Predicted Weekly Recovered Cases for 2021')
     st.plotly_chart(fig)
 
+
 def descriptive_analysis_recovered():
-    descriptive_stats = date_filter['Recovered'].describe()
-    st.write("Descriptive Analysis of Weekly Recovered Cases:")
-    st.write(descriptive_stats)
+    weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
+    st.subheader("Descriptive Analysis of Weekly Recovered Cases:")
+    st.write(weekly_recovered_data['Recovered'].describe())
+    st.subheader("Box Plot of Weekly Recovered Cases")
+    fig = px.box(weekly_recovered_data, y='Recovered', title='Box Plot of Weekly Recovered Cases', labels={'Recovered': 'Weekly Recovered'})
+    st.plotly_chart(fig)
 
 # 4 ------------------------- Total death vs cases chart ---------------------------------------------
 
