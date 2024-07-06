@@ -132,43 +132,57 @@ def descriptive_analysis_chart():
 # 2 ------------------------- Weekly Confirmed Chart ---------------------------------------------
 
 def weekly_confirmed_chart():
-    weekly_confirmed_data = date_filter.set_index('Date').resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data, x='Date', y='Confirmed', title='Weekly Confirmed Cases')
+    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data, x='Date', y='Daily_New_Cases', title='Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
     st.plotly_chart(fig)
 
 def actual_weekly_confirmed_chart_2020():
-    weekly_confirmed_data_2020 = cases_data_2020.set_index('Date').resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data_2020, x='Date', y='Confirmed', title='Actual Weekly Confirmed Cases for 2020')
+    # Filter data for the year 2020 based on the selected countries
+    filtered_data_2020 = date_filter[date_filter['Year'] == 2020]
+    weekly_confirmed_data_2020 = filtered_data_2020.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data_2020, x='Date', y='Daily_New_Cases', title='Actual Weekly New Cases for 2020', labels={'Daily_New_Cases': 'Weekly Cases'})
     st.plotly_chart(fig)
 
 def predict_weekly_confirmed():
-    weekly_confirmed_data = date_filter.set_index('Date').resample('W').sum().reset_index()
-    weekly_confirmed_data['WeekOfYear'] = weekly_confirmed_data['Date'].dt.isocalendar().week
-    X = weekly_confirmed_data[['WeekOfYear']]
-    y = weekly_confirmed_data['Confirmed']
+    # Calculate weekly sum of 'Daily_New_Cases'
+    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
 
+    # Add features like 'WeekOfYear', 'Season', etc. if applicable
+    weekly_confirmed_data['WeekOfYear'] = weekly_confirmed_data['Date'].dt.isocalendar().week
+    # Add other features here based on your analysis
+
+    # Define features (X) and target (y)
+    X = weekly_confirmed_data[['WeekOfYear']]  # Include other features here if added
+    y = weekly_confirmed_data['Daily_New_Cases']
+
+    # Initialize Linear Regression model
     model = LinearRegression()
+
+    # Fit the model
     model.fit(X, y)
 
-    # Create a DataFrame for 2021 prediction
-    weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
+    # Predicting for 2021 weeks
+    weeks_in_2021 = pd.DataFrame({'WeekOfYear': np.arange(1, 53)})  # Generate weeks for 2021
     predicted_confirmed_2021 = model.predict(weeks_in_2021)
-    predicted_data_2021 = pd.DataFrame({
-        'Week': weeks_in_2021.flatten(),
-        'Predicted Confirmed': predicted_confirmed_2021
-    })
 
-    fig = px.bar(predicted_data_2021, x='Week', y='Predicted Confirmed', title='Predicted Weekly Confirmed Cases for 2021')
+    # Calculate MSE on training data (optional)
+    y_pred_train = model.predict(X)
+    mse_train = mean_squared_error(y, y_pred_train)
+    st.write(f"Mean Squared Error on training data: {mse_train}")
+
+    # Create a plot using Plotly Express
+    predicted_data_2021 = pd.DataFrame({'Week': weeks_in_2021['WeekOfYear'], 'Predicted New Cases': predicted_confirmed_2021})
+    fig = px.bar(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
     st.plotly_chart(fig)
 
 def descriptive_analysis_confirmed():
-    st.subheader("Descriptive Analysis of Weekly Confirmed Cases:")
-    st.write(date_filter['Confirmed'].describe())
-    
-    st.subheader("Box Plot of Weekly Confirmed Cases")
-    fig = px.box(date_filter, y='Confirmed', title='Box Plot of Weekly Confirmed Cases')
+    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    st.subheader("Descriptive Analysis of Weekly New Cases:")
+    st.write(weekly_confirmed_data['Daily_New_Cases'].describe())
+    st.subheader("Box Plot of Weekly New Cases")
+    fig = px.box(weekly_confirmed_data, y='Daily_New_Cases', title='Box Plot of Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
     st.plotly_chart(fig)
-
+    
 # 3 ------------------------- Weekly Recovered Chart ---------------------------------------------
 
 def weekly_recovered_chart():
