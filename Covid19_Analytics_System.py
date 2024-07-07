@@ -5,6 +5,8 @@ from streamlit_option_menu import option_menu  # To handle menu option
 from sklearn.linear_model import LinearRegression  # For linear regression
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
+from sklearn.metrics import mean_squared_error
+from pymongo import MongoClient # To connect to MongoDB
 
 # Page configuration
 st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layout="wide")
@@ -249,6 +251,40 @@ def vaccine_by_country_chart():
     fig = px.bar(vaccine_by_country_data, x='country', y='vaccines', title='Vaccine Types by Country', 
                  labels={'country': 'Country', 'vaccines': 'Vaccine Types'})
     st.plotly_chart(fig)
+
+# # 7 ------------------------- Effectiveness of country ---------------------------------------------
+def effectiveness_of_vaccine_chart():
+    # Group by country and calculate the death rate and most used vaccine
+    death_rate_data = date_filter.groupby('Country')['Deaths'].sum().reset_index()
+    vaccine_use_data = vaccine_data.groupby('country')['vaccines'].agg(lambda x: x.value_counts().idxmax()).reset_index()
+    
+    # Merge the two datasets
+    effectiveness_data = pd.merge(death_rate_data, vaccine_use_data, left_on='Country', right_on='country', how='inner')
+    effectiveness_data = effectiveness_data.rename(columns={'Deaths': 'Total Deaths', 'vaccines': 'Most Used Vaccine'})
+
+    # Calculate total cases by country
+    total_cases_by_country = date_filter.groupby('Country')['Daily_New_Cases'].sum().reset_index().rename(columns={'Daily_New_Cases': 'Total Cases'})
+
+    # Merge total cases with effectiveness data
+    effectiveness_data = pd.merge(effectiveness_data, total_cases_by_country, on='Country', how='inner')
+
+    # Calculate death rate
+    effectiveness_data['Death Rate'] = effectiveness_data['Total Deaths'] / effectiveness_data['Total Cases'] * 100
+
+    # Plot the data
+    fig = px.scatter(effectiveness_data, x='Most Used Vaccine', y='Death Rate', color='Country', title='Effectiveness of Vaccines by Death Rate')
+    st.plotly_chart(fig)
+    
+    # Calculate the average death rate for each vaccine
+    avg_death_rate_by_vaccine = effectiveness_data.groupby('Most Used Vaccine')['Death Rate'].mean().reset_index()
+    
+    # Find the most and least effective vaccines
+    most_effective_vaccine = avg_death_rate_by_vaccine.loc[avg_death_rate_by_vaccine['Death Rate'].idxmin()]
+    least_effective_vaccine = avg_death_rate_by_vaccine.loc[avg_death_rate_by_vaccine['Death Rate'].idxmax()]
+    
+    # Display the results
+    st.write("Most effective vaccine is:", most_effective_vaccine['Most Used Vaccine'], "with an average death rate of", most_effective_vaccine['Death Rate'])
+    st.write("Least effective vaccine is:", least_effective_vaccine['Most Used Vaccine'], "with an average death rate of", least_effective_vaccine['Death Rate'])
 
 # Define main content based on sidebar choice
 if menu_choice == "Home":
