@@ -245,13 +245,13 @@ def total_deaths_vs_cases_chart():
 def descriptive_analysis_deaths():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_deaths = total_data['Daily_Deaths'].describe()
-    st.write("Descriptive Analysis of Total Deaths:")
+    st.write("Descriptive Analysis of Daily Deaths:")
     st.write(descriptive_stats_deaths)
 
 def descriptive_analysis_cases():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_cases = total_data['Daily_New_Cases'].describe()
-    st.write("Descriptive Analysis of Total Confirmed Cases:")
+    st.write("Descriptive Analysis of Daily Confirmed Cases:")
     st.write(descriptive_stats_cases)
 # 5 ------------------------- Case by Country ---------------------------------------------
 
