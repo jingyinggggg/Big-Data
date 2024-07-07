@@ -227,13 +227,13 @@ def descriptive_analysis_recovered():
 
 # 4 ------------------------- Total death vs cases chart ---------------------------------------------
 
-def total_deaths_vs_cases_chart(cases_data):
+def total_deaths_vs_cases_chart():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     
-    # Get the minimum and maximum values for the axes
-    min_confirmed = total_data['Daily_New_Cases'].min()
+    # Get the minimum and maximum values for the axes and ensure they are greater than zero
+    min_confirmed = max(total_data['Daily_New_Cases'].min(), 1)
     max_confirmed = total_data['Daily_New_Cases'].max()
-    min_deaths = total_data['Daily_Deaths'].min()
+    min_deaths = max(total_data['Daily_Deaths'].min(), 1)
     max_deaths = total_data['Daily_Deaths'].max()
     
     fig = px.scatter(total_data, x='Daily_New_Cases', y='Daily_Deaths', color='Country', 
@@ -252,10 +252,9 @@ def descriptive_analysis_deaths():
 
 def descriptive_analysis_cases():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
-    descriptive_stats_cases = total_data['Confirmed'].describe()
+    descriptive_stats_cases = total_data['Daily_New_Cases'].describe()
     st.write("Descriptive Analysis of Total Confirmed Cases:")
     st.write(descriptive_stats_cases)
-
 # 5 ------------------------- Case by Country ---------------------------------------------
 
 def cases_by_country_chart():
