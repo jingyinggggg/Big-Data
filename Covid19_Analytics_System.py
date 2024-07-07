@@ -72,7 +72,6 @@ st.write("Welcome to the Covid-19 Analytics Dashboard. Use the filters in the si
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
 
 # Predicting 2021 Death Rate
-# Assuming daily data and predicting using Linear Regression
 cases_data_2020['DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
 
 X = cases_data_2020[['DayOfYear']]
@@ -90,7 +89,6 @@ predicted_data_2021 = pd.DataFrame({
 })
 
 def death_rate_chart():
-    #filtered_data = date_filter.groupby('Date').sum().reset_index()
     filtered_data = date_filter.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
 
     fig = px.area(filtered_data, x='Date', y='Deaths', title='Cumulative Death Rates Over Time', 
