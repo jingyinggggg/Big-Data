@@ -234,6 +234,18 @@ def total_deaths_vs_cases_chart():
                      title='Total Deaths vs Cases by Country')
     st.plotly_chart(fig)
 
+def descriptive_analysis_deaths():
+    total_data = cases_data.groupby('Country').agg({'Deaths': 'sum', 'Confirmed': 'sum'}).reset_index()
+    descriptive_stats_deaths = total_data['Deaths'].describe()
+    st.write("Descriptive Analysis of Total Deaths:")
+    st.write(descriptive_stats_deaths)
+
+def descriptive_analysis_cases():
+    total_data = cases_data.groupby('Country').agg({'Deaths': 'sum', 'Confirmed': 'sum'}).reset_index()
+    descriptive_stats_cases = total_data['Confirmed'].describe()
+    st.write("Descriptive Analysis of Total Confirmed Cases:")
+    st.write(descriptive_stats_cases)
+
 # 5 ------------------------- Case by Country ---------------------------------------------
 
 def cases_by_country_chart():
@@ -243,6 +255,14 @@ def cases_by_country_chart():
                         title='Number of Cases by Country',
                         color_continuous_scale=px.colors.sequential.Plasma)
     st.plotly_chart(fig)
+
+def descriptive_analysis_cases_by_country():
+    cases_by_country_data = cases_data.groupby('Country')['Daily_New_Cases'].sum().reset_index()
+    
+    # Descriptive statistics for daily new cases
+    descriptive_stats_cases_by_country = cases_by_country_data['Daily_New_Cases'].describe()
+    st.write("Descriptive Analysis of Daily New Cases by Country:")
+    st.write(descriptive_stats_cases_by_country)
 
 # 6 ------------------------- Vaccine by country ---------------------------------------------
     
@@ -357,14 +377,25 @@ elif menu_choice == "Weekly Recovered Case":
 elif menu_choice == "Cases by Country":
     st.title("Cases by Country Chart")
     cases_by_country_chart()
-    
-elif menu_choice == "Vaccine by Country":
-    st.title("Vaccine by Country Chart")
-    vaccine_by_country_chart()
+    descriptive_analysis_cases_by_country()
     
 elif menu_choice == "Total Death VS Cases":
     st.title("Total Death VS Cases Chart")
     total_deaths_vs_cases_chart()
+       
+    # Define column
+    colG, colH = st.columns(2)
+    with colG:
+        #st.markdown("Actual Weekly Recovered Case")
+        descriptive_analysis_deaths()
+    with colH:
+        #st.markdown("Predicted Weekly Recovered Case")
+        descriptive_analysis_cases()
+    
+elif menu_choice == "Vaccine by Country":
+    st.title("Vaccine by Country Chart")
+    vaccine_by_country_chart()
+
 # Footer
 footer = """<style>
 a:hover, a:active { color: red; background-color: transparent; text-decoration: underline; }
