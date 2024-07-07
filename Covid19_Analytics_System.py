@@ -227,21 +227,31 @@ def descriptive_analysis_recovered():
 
 # 4 ------------------------- Total death vs cases chart ---------------------------------------------
 
-def total_deaths_vs_cases_chart():
-    total_data = cases_data.groupby('Country').agg({'Deaths': 'sum', 'Confirmed': 'sum'}).reset_index()
-    fig = px.scatter(total_data, x='Confirmed', y='Deaths', color='Country', 
-                     size='Deaths', hover_name='Country', log_x=True, log_y=True,
-                     title='Total Deaths vs Cases by Country')
+def total_deaths_vs_cases_chart(cases_data):
+    total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
+    
+    # Get the minimum and maximum values for the axes
+    min_confirmed = total_data['Daily_New_Cases'].min()
+    max_confirmed = total_data['Daily_New_Cases'].max()
+    min_deaths = total_data['Daily_Deaths'].min()
+    max_deaths = total_data['Daily_Deaths'].max()
+    
+    fig = px.scatter(total_data, x='Daily_New_Cases', y='Daily_Deaths', color='Country', 
+                     size='Daily_Deaths', hover_name='Country', log_x=True, log_y=True,
+                     title='Total Deaths vs Cases by Country',
+                     range_x=[min_confirmed, max_confirmed],
+                     range_y=[min_deaths, max_deaths])
+    
     st.plotly_chart(fig)
 
 def descriptive_analysis_deaths():
-    total_data = cases_data.groupby('Country').agg({'Deaths': 'sum', 'Confirmed': 'sum'}).reset_index()
-    descriptive_stats_deaths = total_data['Deaths'].describe()
+    total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
+    descriptive_stats_deaths = total_data['Daily_Deaths'].describe()
     st.write("Descriptive Analysis of Total Deaths:")
     st.write(descriptive_stats_deaths)
 
 def descriptive_analysis_cases():
-    total_data = cases_data.groupby('Country').agg({'Deaths': 'sum', 'Confirmed': 'sum'}).reset_index()
+    total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_cases = total_data['Confirmed'].describe()
     st.write("Descriptive Analysis of Total Confirmed Cases:")
     st.write(descriptive_stats_cases)
@@ -249,9 +259,9 @@ def descriptive_analysis_cases():
 # 5 ------------------------- Case by Country ---------------------------------------------
 
 def cases_by_country_chart():
-    cases_by_country_data = cases_data.groupby('Country')['Confirmed'].sum().reset_index()
+    cases_by_country_data = cases_data.groupby('Country')['Daily_New_Cases'].sum().reset_index()
     fig = px.choropleth(cases_by_country_data, locations='Country', locationmode='country names', 
-                        color='Confirmed', hover_name='Country', 
+                        color='Daily_New_Cases', hover_name='Country', 
                         title='Number of Cases by Country',
                         color_continuous_scale=px.colors.sequential.Plasma)
     st.plotly_chart(fig)
