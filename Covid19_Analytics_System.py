@@ -5,8 +5,8 @@ from streamlit_option_menu import option_menu  # To handle menu option
 from sklearn.linear_model import LinearRegression  # For linear regression
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
-from sklearn.metrics import mean_squared_error
 from pymongo import MongoClient # To connect to MongoDB
+from sklearn.ensemble import RandomForestRegressor
 import time
 
 # Page configuration
@@ -81,6 +81,7 @@ selected_countries = st.sidebar.multiselect("Select the Country:", options=avail
 start_time = time.time()
 year_filter = cases_data[cases_data["Year"].isin(selected_years)] if selected_years else cases_data
 country_filter = year_filter[year_filter["Country"].isin(selected_countries)] if selected_countries else year_filter
+country_filter2020 = cases_data_2020[cases_data_2020["Country"].isin(selected_countries)] if selected_countries else cases_data_2020
 end_time = time.time()
 print(f"Sidebar filtering time: {end_time - start_time} seconds")
 
@@ -100,8 +101,6 @@ with st.sidebar:
 # Define chart functions
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
 
-# Predicting 2021 Death Rate
-# Assuming daily data and predicting using Linear Regression
 cases_data_2020.loc[:, 'DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
 
 X = cases_data_2020[['DayOfYear']]
@@ -141,7 +140,7 @@ def death_rate_chart():
 
 @profile    
 def actual_death_rate_chart():
-    filtered_data = cases_data_2020.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
+    filtered_data = country_filter.groupby('Date')[country_filter.select_dtypes(include='number').columns].sum().reset_index()
     filtered_data['Death Rate'] = filtered_data['Deaths']
     fig = px.bar(filtered_data, x='Date', y='Death Rate', title='Actual Death Rate Over Time (2020)')
     st.plotly_chart(fig)
@@ -149,7 +148,7 @@ def actual_death_rate_chart():
 @profile
 def predicted_death_rate_chart():
     # Aggregate daily death counts to ensure unique dates
-    daily_deaths = cases_data_2020.groupby('Date')['Deaths'].sum()
+    daily_deaths = country_filter2020.groupby('Date')['Deaths'].sum()
 
     # Ensure the series has a daily frequency, fill missing dates with NaN first
     daily_deaths = daily_deaths.asfreq('D').fillna(0)
@@ -201,47 +200,51 @@ def descriptive_analysis_chart():
 # 2 ------------------------- Weekly Confirmed Chart ---------------------------------------------
 @profile
 def weekly_confirmed_chart():
-    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data, x='Date', y='Daily_New_Cases', title='Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
+    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data, x='Date', y='Confirmed', title='Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
 @profile
 def actual_weekly_confirmed_chart_2020():
-    weekly_confirmed_data_2020 = cases_data_2020.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data_2020, x='Date', y='Daily_New_Cases', title='Actual Weekly New Cases for 2020', labels={'Daily_New_Cases': 'Weekly Cases'})
+    weekly_confirmed_data_2020 = cases_data_2020.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data_2020, x='Date', y='Confirmed', title='Actual Weekly New Cases for 2020', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
 @profile
 def predict_weekly_confirmed():
-    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    # Resample daily data to weekly and sum
+    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
     weekly_confirmed_data['WeekOfYear'] = weekly_confirmed_data['Date'].dt.isocalendar().week
     X = weekly_confirmed_data[['WeekOfYear']]
-    y = weekly_confirmed_data['Daily_New_Cases']
+    y = weekly_confirmed_data['Confirmed']
 
-    model = LinearRegression()
+    # Train Random Forest model
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
 
     # Create a DataFrame for 2021 prediction
     weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
     X_predict = pd.DataFrame(weeks_in_2021, columns=['WeekOfYear'])
     predicted_confirmed_2021 = model.predict(X_predict)
+    # predicted_confirmed_2021 = model.predict(weeks_in_2021)
     predicted_data_2021 = pd.DataFrame({
         'Week': weeks_in_2021.flatten(),
         'Predicted New Cases': predicted_confirmed_2021
     })
 
-    fig = px.bar(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
+    # Plot predicted weekly new cases for 2021 using Plotly Express
+    fig = px.line(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
     st.plotly_chart(fig)
 
 @profile
 def descriptive_analysis_confirmed():
-    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
     
     st.subheader("Descriptive Analysis of Weekly New Cases:")
-    st.write(weekly_confirmed_data['Daily_New_Cases'].describe())
+    st.write(weekly_confirmed_data['Confirmed'].describe())
     
     st.subheader("Box Plot of Weekly New Cases")
-    fig = px.box(weekly_confirmed_data, y='Daily_New_Cases', title='Box Plot of Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
+    fig = px.box(weekly_confirmed_data, y='Confirmed', title='Box Plot of Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
 # 3 ------------------------- Weekly Recovered Chart ---------------------------------------------
@@ -281,19 +284,22 @@ def predict_weekly_recovered():
     X = weekly_recovered_data[['WeekOfYear']]
     y = weekly_recovered_data['Recovered']
 
-    model = LinearRegression()
+    # Train Random Forest model
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
 
     # Create a DataFrame for 2021 prediction
     weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
     X_predict = pd.DataFrame(weeks_in_2021, columns=['WeekOfYear'])
     predicted_recovered_2021 = model.predict(X_predict)
+    # predicted_recovered_2021 = model.predict(weeks_in_2021)
     predicted_data_2021 = pd.DataFrame({
         'Week': weeks_in_2021.flatten(),
         'Predicted Recovered': predicted_recovered_2021
     })
 
-    fig = px.bar(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
+    # Plot predicted weekly recovered cases for 2021 using Plotly Express
+    fig = px.line(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
     st.plotly_chart(fig)
 
 @profile
