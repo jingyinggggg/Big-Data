@@ -4,11 +4,10 @@ import plotly.express as px  # To create charts
 from streamlit_option_menu import option_menu  # To handle menu option
 from sklearn.linear_model import LinearRegression  # For linear regression
 import numpy as np
-from pymongo import MongoClient # To connect to MongoDB
-
-############################################ Machine Learning Algorithm ###########################################################
-from sklearn.ensemble import RandomForestRegressor # For random forest regression model
 from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
+from sklearn.metrics import mean_squared_error
+from pymongo import MongoClient # To connect to MongoDB
+import time
 
 # Page configuration
 st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layout="wide")
@@ -17,24 +16,53 @@ st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layou
 with open('style.css') as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# MongoDB connection
-client = MongoClient("mongodb://localhost:27017")
-db = client["vaccine_analysis"]
+@st.cache_data
+def load_data():
+    # Load datasets
+    start_time = time.time()
+    client = MongoClient("mongodb://localhost:27017")
+    db = client["vaccine_analysis"]
+    
+    cases_data = pd.DataFrame(list(db["aggregated_data_cleaned"].find()))
+    vaccine_data = pd.DataFrame(list(db["vaccine_data_cleaned"].find()))
+    end_time = time.time()
+    print(f"Data loading time: {end_time - start_time} seconds")
 
-# Load datasets
-cases_data = pd.DataFrame(list(db["aggregated_data_cleaned"].find()))
-vaccine_data = pd.DataFrame(list(db["vaccine_data_cleaned"].find()))
+    # Process Data for Analysis
+    start_time = time.time()
+    cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
+    vaccine_data['date'] = pd.to_datetime(vaccine_data['date'], format='%Y-%m-%d', errors='coerce')
+    end_time = time.time()
+    print(f"Data processing time: {end_time - start_time} seconds")
+    
+    return cases_data, vaccine_data 
 
-# Process Data for Analysis
-cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
-vaccine_data['date'] = pd.to_datetime(vaccine_data['date'], format='%Y-%m-%d', errors='coerce')
+@st.cache_data
+def preprocess_data(cases_data):
+    cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
+    cases_data['Year'] = cases_data['Date'].dt.year
+    return cases_data[cases_data['Year'] == 2020].copy()
+
+# Caching Model Training
+@st.cache_data
+def train_model(cases_data_2020):
+    cases_data_2020['DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
+    
+    X = cases_data_2020[['DayOfYear']]
+    y = cases_data_2020['Deaths']
+    
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    return model
+
+# Load and process data
+cases_data, vaccine_data = load_data()
+cases_data_2020 = preprocess_data(cases_data)
 
 # Extract year from date
 cases_data['Year'] = cases_data['Date'].dt.year
 vaccine_data['Year'] = vaccine_data['date'].dt.year
-
-# Filter data for the year 2020
-cases_data_2020 = cases_data[cases_data['Year'] == 2020]
 
 ##########################################
 
@@ -43,157 +71,208 @@ st.sidebar.header("Please Filter Here:")
 
 # Year filter
 available_years = cases_data["Year"].dropna().unique()
-selected_years = st.sidebar.multiselect("Select the Year:", options=available_years, default=list(available_years))
+selected_years = st.sidebar.multiselect("Select the Year:", options=available_years)
 
 # Country filter
 available_countries = cases_data["Country"].unique()
-selected_countries = st.sidebar.multiselect("Select the Country:", options=available_countries, default=list(available_countries))
+selected_countries = st.sidebar.multiselect("Select the Country:", options=available_countries)
 
 # Filter data based on sidebar input
+start_time = time.time()
 year_filter = cases_data[cases_data["Year"].isin(selected_years)] if selected_years else cases_data
 country_filter = year_filter[year_filter["Country"].isin(selected_countries)] if selected_countries else year_filter
+end_time = time.time()
+print(f"Sidebar filtering time: {end_time - start_time} seconds")
 
 # Date range filter
 min_date = cases_data["Date"].min().to_pydatetime()
 max_date = cases_data["Date"].max().to_pydatetime()
-selected_date_range = st.sidebar.slider("Select the Date Range:", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+selected_date_range = st.sidebar.slider("Select the Date Range:", min_value=min_date, max_value=max_date, value=(min_date, max_date), format="YYYY-MM-DD")
 
-date_filter = country_filter[(country_filter["Date"] >= selected_date_range[0]) & (country_filter["Date"] <= selected_date_range[1])]
+date_filter = country_filter[(country_filter["Date"] >= selected_date_range[0]) & (country_filter["Date"] <= selected_date_range[1])].copy()
 
 # Define sidebar
 with st.sidebar:
     menu_choice = option_menu("Main Menu", ["Home", 'Death Rate Charts', "Weekly Confirmed Case", 'Weekly Recovered Case', 'Cases by Country',
-                                            'Vaccine by Country', 'Total Death VS Cases'], 
-        icons=['house', 'graph-down', 'virus', 'bandaid', 'globe-americas','heart-pulse', 'journals'], menu_icon="cast", default_index=1)
-
-# Main title and welcome message
-st.title("Covid-19 Analytics Dashboard")
-st.write("Welcome to the Covid-19 Analytics Dashboard. Use the filters in the sidebar to explore the data.")
+                                            'Total Death VS Cases', 'Vaccine by Country', 'Effectiveness of Vaccines'], 
+        icons=['house', 'graph-down', 'virus', 'bandaid', 'globe-americas','heart-pulse', 'journals', 'clipboard-heart'], menu_icon="cast", default_index=1)
 
 # Define chart functions
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
 
 # Predicting 2021 Death Rate
-cases_data_2020['DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
+# Assuming daily data and predicting using Linear Regression
+cases_data_2020.loc[:, 'DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
 
 X = cases_data_2020[['DayOfYear']]
 y = cases_data_2020['Deaths']
-
+start_time = time.time()
 model = LinearRegression()
 model.fit(X, y)
+end_time = time.time()
+print(f"Linear Regression training time: {end_time - start_time} seconds")
 
 # Create a DataFrame for 2021 prediction
 days_in_2021 = np.arange(1, 366).reshape(-1, 1)
-predicted_deaths_2021 = model.predict(days_in_2021)
+X_predict = pd.DataFrame(days_in_2021, columns=['DayOfYear'])
+predicted_deaths_2021 = model.predict(X_predict)
 predicted_data_2021 = pd.DataFrame({
     'Date': pd.date_range(start='2021-01-01', end='2021-12-31'),
     'Predicted Deaths': predicted_deaths_2021
 })
 
+def profile(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"Execution time for {func.__name__}: {execution_time:.4f} seconds")
+        return result
+    return wrapper
+
+@profile
 def death_rate_chart():
     filtered_data = date_filter.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
 
     fig = px.area(filtered_data, x='Date', y='Deaths', title='Cumulative Death Rates Over Time', 
                   labels={'Deaths': 'Cumulative Deaths'})
     st.plotly_chart(fig)
-    
+
+@profile    
 def actual_death_rate_chart():
     filtered_data = cases_data_2020.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
     filtered_data['Death Rate'] = filtered_data['Deaths']
     fig = px.bar(filtered_data, x='Date', y='Death Rate', title='Actual Death Rate Over Time (2020)')
     st.plotly_chart(fig)
 
+@profile
 def predicted_death_rate_chart():
     # Aggregate daily death counts to ensure unique dates
     daily_deaths = cases_data_2020.groupby('Date')['Deaths'].sum()
-    
+
+    # Ensure the series has a daily frequency, fill missing dates with NaN first
+    daily_deaths = daily_deaths.asfreq('D').fillna(0)
+
+    # Check if the data is stationary
+    stationary = is_stationary(daily_deaths)
+    if not stationary:
+        # Difference the data to make it stationary
+        daily_deaths_diff = daily_deaths.diff().dropna()
+    else:
+        daily_deaths_diff = daily_deaths
+
     # Fit ARIMA model
-    daily_deaths = daily_deaths.asfreq('D').fillna(0)  # Ensure the series has a daily frequency
-    model = ARIMA(daily_deaths, order=(5, 1, 0))
+    model = ARIMA(daily_deaths_diff, order=(5, 1, 0))
     model_fit = model.fit()
 
     # Forecast for 2021
-    forecast = model_fit.forecast(steps=365)
-    forecast_dates = pd.date_range(start='2021-01-01', end='2021-12-31')
+    forecast_steps = 365  # Number of days to forecast
+    forecast_diff = model_fit.forecast(steps=forecast_steps)
+    forecast_dates = pd.date_range(start='2021-01-01', periods=forecast_steps, freq='D')
+
+    # Convert forecast from differenced to original scale
+    if not stationary:
+        # Inverse differencing to get the forecast back to original scale
+        forecast = pd.Series(forecast_diff).cumsum() + daily_deaths.iloc[-1]
+    else:
+        forecast = forecast_diff
+
+    # Create DataFrame for forecast results
     forecast_data = pd.DataFrame({
         'Date': forecast_dates,
-        'Predicted Deaths': forecast.values
+        'Predicted Deaths': forecast
     })
 
+    # Plot forecast data
     fig = px.line(forecast_data, x='Date', y='Predicted Deaths', title='Predicted Death Rate for 2021')
     st.plotly_chart(fig)
 
+def is_stationary(data):
+    from statsmodels.tsa.stattools import adfuller
+    result = adfuller(data)
+    return result[1] <= 0.05  # p-value less than or equal to 0.05 indicates stationarity
+
+@profile
 def descriptive_analysis_chart():
     st.subheader("Descriptive Analysis of Death Rate (2020):")
     st.write(cases_data_2020['Deaths'].describe())
-    
-    st.subheader("Box Plot of Death Rates")
-    fig = px.box(cases_data_2020, y='Deaths', title='Box Plot of Death Rates in 2020')
-    st.plotly_chart(fig)
 
 # 2 ------------------------- Weekly Confirmed Chart ---------------------------------------------
-
+@profile
 def weekly_confirmed_chart():
-    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data, x='Date', y='Confirmed', title='Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
+    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data, x='Date', y='Daily_New_Cases', title='Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
     st.plotly_chart(fig)
 
+@profile
 def actual_weekly_confirmed_chart_2020():
-    weekly_confirmed_data_2020 = cases_data_2020.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
-    fig = px.bar(weekly_confirmed_data_2020, x='Date', y='Confirmed', title='Actual Weekly New Cases for 2020', labels={'Confirmed': 'Cumulative Weekly Cases'})
+    weekly_confirmed_data_2020 = cases_data_2020.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data_2020, x='Date', y='Daily_New_Cases', title='Actual Weekly New Cases for 2020', labels={'Daily_New_Cases': 'Weekly Cases'})
     st.plotly_chart(fig)
 
+@profile
 def predict_weekly_confirmed():
-    # Resample daily data to weekly and sum
-    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
     weekly_confirmed_data['WeekOfYear'] = weekly_confirmed_data['Date'].dt.isocalendar().week
     X = weekly_confirmed_data[['WeekOfYear']]
-    y = weekly_confirmed_data['Confirmed']
+    y = weekly_confirmed_data['Daily_New_Cases']
 
-    # Train Random Forest model
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model = LinearRegression()
     model.fit(X, y)
 
     # Create a DataFrame for 2021 prediction
     weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
-    predicted_confirmed_2021 = model.predict(weeks_in_2021)
+    X_predict = pd.DataFrame(weeks_in_2021, columns=['WeekOfYear'])
+    predicted_confirmed_2021 = model.predict(X_predict)
     predicted_data_2021 = pd.DataFrame({
         'Week': weeks_in_2021.flatten(),
         'Predicted New Cases': predicted_confirmed_2021
     })
 
-    # Plot predicted weekly new cases for 2021 using Plotly Express
-    fig = px.line(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
+    fig = px.bar(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
     st.plotly_chart(fig)
 
+@profile
 def descriptive_analysis_confirmed():
-    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
     
     st.subheader("Descriptive Analysis of Weekly New Cases:")
-    st.write(weekly_confirmed_data['Confirmed'].describe())
+    st.write(weekly_confirmed_data['Daily_New_Cases'].describe())
     
     st.subheader("Box Plot of Weekly New Cases")
-    fig = px.box(weekly_confirmed_data, y='Confirmed', title='Box Plot of Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
+    fig = px.box(weekly_confirmed_data, y='Daily_New_Cases', title='Box Plot of Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
     st.plotly_chart(fig)
-    
+
 # 3 ------------------------- Weekly Recovered Chart ---------------------------------------------
 
+# Function to convert dates to the end of the week
 def get_week_end(date):
     return date + pd.DateOffset(days=(6 - date.weekday()))
 
+# Add a new column to hold the week end date
 date_filter['Week_End'] = date_filter['Date'].apply(get_week_end)
 
+@profile
 def weekly_recovered_chart():
+    # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
+    
     fig = px.line(weekly_recovered_data, x='Week_End', y='Recovered', title='Weekly Recovered Cases')
     st.plotly_chart(fig)
 
+@profile
 def actual_weekly_recovered_chart_2020():
+    # Filter the data for the year 2020
     data_2020 = date_filter[date_filter['Date'].dt.year == 2020]
+    
+    # Group by the week end date and sum the recovered cases
     weekly_recovered_data_2020 = data_2020.groupby('Week_End')['Recovered'].sum().reset_index()
+    
     fig = px.line(weekly_recovered_data_2020, x='Week_End', y='Recovered', title='Actual Weekly Recovered Cases for 2020')
     st.plotly_chart(fig)
 
+@profile
 def predict_weekly_recovered():
     # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
@@ -202,62 +281,79 @@ def predict_weekly_recovered():
     X = weekly_recovered_data[['WeekOfYear']]
     y = weekly_recovered_data['Recovered']
 
-    # Train Random Forest model
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model = LinearRegression()
     model.fit(X, y)
 
     # Create a DataFrame for 2021 prediction
     weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
-    predicted_recovered_2021 = model.predict(weeks_in_2021)
+    X_predict = pd.DataFrame(weeks_in_2021, columns=['WeekOfYear'])
+    predicted_recovered_2021 = model.predict(X_predict)
     predicted_data_2021 = pd.DataFrame({
         'Week': weeks_in_2021.flatten(),
         'Predicted Recovered': predicted_recovered_2021
     })
 
-    # Plot predicted weekly recovered cases for 2021 using Plotly Express
-    fig = px.line(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
+    fig = px.bar(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
     st.plotly_chart(fig)
 
+@profile
 def descriptive_analysis_recovered():
+    # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
-    st.subheader("Descriptive Analysis of Weekly Recovered Cases:")
-    st.write(weekly_recovered_data['Recovered'].describe())
-    st.subheader("Box Plot of Weekly Recovered Cases")
-    fig = px.box(weekly_recovered_data, y='Recovered', title='Box Plot of Weekly Recovered Cases', labels={'Recovered': 'Weekly Recovered'})
-    st.plotly_chart(fig)
+    
+    descriptive_stats = weekly_recovered_data['Recovered'].describe()
+    st.write("Descriptive Analysis of Weekly Recovered Cases:")
+    st.write(descriptive_stats)
 
+        
 # 4 ------------------------- Total death vs cases chart ---------------------------------------------
-
-def total_deaths_vs_cases_chart():
+@profile
+def total_deaths_vs_cases_chart(cases_data):
+    # Group data
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     
-    # Get the minimum and maximum values for the axes and ensure they are greater than zero
+    # Convert to numeric, handle errors
+    total_data['Daily_Deaths'] = pd.to_numeric(total_data['Daily_Deaths'], errors='coerce')
+    total_data['Daily_New_Cases'] = pd.to_numeric(total_data['Daily_New_Cases'], errors='coerce')
+    
+    # Drop NaN values
+    total_data = total_data.dropna(subset=['Daily_Deaths', 'Daily_New_Cases'])
+    
+    # Filter out zero or negative values
+    total_data = total_data[(total_data['Daily_New_Cases'] > 0) & (total_data['Daily_Deaths'] > 0)]
+    
+    # Get the minimum and maximum values for the axes
     min_confirmed = max(total_data['Daily_New_Cases'].min(), 1)
     max_confirmed = total_data['Daily_New_Cases'].max()
     min_deaths = max(total_data['Daily_Deaths'].min(), 1)
     max_deaths = total_data['Daily_Deaths'].max()
     
+    # Create a scatter plot
     fig = px.scatter(total_data, x='Daily_New_Cases', y='Daily_Deaths', color='Country', 
                      size='Daily_Deaths', hover_name='Country', log_x=True, log_y=True,
                      title='Total Deaths vs Cases by Country',
                      range_x=[min_confirmed, max_confirmed],
                      range_y=[min_deaths, max_deaths])
     
+    # Display the chart
     st.plotly_chart(fig)
 
+@profile
 def descriptive_analysis_deaths():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_deaths = total_data['Daily_Deaths'].describe()
-    st.write("Descriptive Analysis of Daily Deaths:")
+    st.write("Descriptive Analysis of Total Deaths:")
     st.write(descriptive_stats_deaths)
 
+@profile
 def descriptive_analysis_cases():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_cases = total_data['Daily_New_Cases'].describe()
-    st.write("Descriptive Analysis of Daily Confirmed Cases:")
+    st.write("Descriptive Analysis of Total Confirmed Cases:")
     st.write(descriptive_stats_cases)
-# 5 ------------------------- Case by Country ---------------------------------------------
-
+    
+# # 5 ------------------------- Case by Country ---------------------------------------------
+@profile
 def cases_by_country_chart():
     cases_by_country_data = cases_data.groupby('Country')['Daily_New_Cases'].sum().reset_index()
     fig = px.choropleth(cases_by_country_data, locations='Country', locationmode='country names', 
@@ -266,6 +362,7 @@ def cases_by_country_chart():
                         color_continuous_scale=px.colors.sequential.Plasma)
     st.plotly_chart(fig)
 
+@profile
 def descriptive_analysis_cases_by_country():
     cases_by_country_data = cases_data.groupby('Country')['Daily_New_Cases'].sum().reset_index()
     
@@ -273,9 +370,9 @@ def descriptive_analysis_cases_by_country():
     descriptive_stats_cases_by_country = cases_by_country_data['Daily_New_Cases'].describe()
     st.write("Descriptive Analysis of Daily New Cases by Country:")
     st.write(descriptive_stats_cases_by_country)
-
-# 6 ------------------------- Vaccine by country ---------------------------------------------
     
+# # 6 ------------------------- Vaccine by country ---------------------------------------------
+@profile    
 def vaccine_by_country_chart():
     vaccine_by_country_data = vaccine_data.groupby('country')['vaccines'].first().reset_index()
     fig = px.bar(vaccine_by_country_data, x='country', y='vaccines', title='Vaccine Types by Country', 
@@ -283,6 +380,7 @@ def vaccine_by_country_chart():
     st.plotly_chart(fig)
 
 # # 7 ------------------------- Effectiveness of country ---------------------------------------------
+@profile
 def effectiveness_of_vaccine_chart():
     # Group by country and calculate the death rate and most used vaccine
     death_rate_data = date_filter.groupby('Country')['Deaths'].sum().reset_index()
@@ -316,12 +414,18 @@ def effectiveness_of_vaccine_chart():
     st.write("Most effective vaccine is:", most_effective_vaccine['Most Used Vaccine'], "with an average death rate of", most_effective_vaccine['Death Rate'])
     st.write("Least effective vaccine is:", least_effective_vaccine['Most Used Vaccine'], "with an average death rate of", least_effective_vaccine['Death Rate'])
 
+
 # Define main content based on sidebar choice
 if menu_choice == "Home":
-    st.title("Death Rate Chart")
+    # Main title and welcome message
+    st.title("Covid-19 Analytics Dashboard")
+    st.write("Welcome to the Covid-19 Analytics Dashboard. Use the filters in the sidebar to explore the data.")
+    
+    st.markdown(" ### Death Rate Chart")
     death_rate_chart()
     
     # Create columns for layout
+    # Two chart align in a same row
     col1, col2 = st.columns(2)
 
     with col1:
@@ -331,14 +435,11 @@ if menu_choice == "Home":
         st.markdown("Weekly Recovered Case")
         weekly_recovered_chart()
 
-    st.markdown("### Cases by Country")
-    cases_by_country_chart()
-
     st.markdown(" ### Vaccine by Country")
     vaccine_by_country_chart()
     
-    st.markdown(" ### Total death VS Cases")
-    total_deaths_vs_cases_chart()
+    st.markdown(" ### Effectiveness of Vaccines")
+    effectiveness_of_vaccine_chart()
         
 elif menu_choice == "Death Rate Charts":
     st.title("Death Rate Charts")
@@ -353,7 +454,7 @@ elif menu_choice == "Death Rate Charts":
         st.markdown("### Predicted Death Rate Chart")
         predicted_death_rate_chart()
     
-    st.markdown("### Descriptive Analysis of Death Rate")
+    #st.markdown("### Descriptive Analysis of Death Rate")
     descriptive_analysis_chart()
     
 elif menu_choice == "Weekly Confirmed Case":
@@ -391,7 +492,7 @@ elif menu_choice == "Cases by Country":
     
 elif menu_choice == "Total Death VS Cases":
     st.title("Total Death VS Cases Chart")
-    total_deaths_vs_cases_chart()
+    total_deaths_vs_cases_chart(cases_data)
        
     # Define column
     colG, colH = st.columns(2)
@@ -401,10 +502,14 @@ elif menu_choice == "Total Death VS Cases":
     with colH:
         #st.markdown("Predicted Weekly Recovered Case")
         descriptive_analysis_cases()
-    
+     
 elif menu_choice == "Vaccine by Country":
     st.title("Vaccine by Country Chart")
     vaccine_by_country_chart()
+    
+elif menu_choice == "Effectiveness of Vaccines":
+    st.title("Effectiveness of Vaccines")
+    effectiveness_of_vaccine_chart()
 
 # Footer
 footer = """<style>
