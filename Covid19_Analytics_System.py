@@ -337,7 +337,7 @@ def total_deaths_vs_cases_chart(cases_data):
     max_deaths = total_data['Daily_Deaths'].max()
     
     # Create a scatter plot
-    fig = px.scatter(total_data, x='Daily_New_Cases', y='Daily_Deaths', color='Country', 
+    fig = px.scatter(total_data, x='Daily_New_Cases', y='Daily_Deaths', color='Country', labels={'Daily_New_Cases': 'Cases', 'Daily_Deaths': 'Total deaths'},
                      size='Daily_Deaths', hover_name='Country', log_x=True, log_y=True,
                      title='Total Deaths vs Cases by Country',
                      range_x=[min_confirmed, max_confirmed],
