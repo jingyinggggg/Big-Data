@@ -4,9 +4,11 @@ import plotly.express as px  # To create charts
 from streamlit_option_menu import option_menu  # To handle menu option
 from sklearn.linear_model import LinearRegression  # For linear regression
 import numpy as np
-from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
-from sklearn.metrics import mean_squared_error
 from pymongo import MongoClient # To connect to MongoDB
+
+############################################ Machine Learning Algorithm ###########################################################
+from sklearn.ensemble import RandomForestRegressor # For random forest regression model
+from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
 
 # Page configuration
 st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layout="wide")
