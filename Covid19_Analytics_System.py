@@ -69,7 +69,24 @@ vaccine_data['Year'] = vaccine_data['date'].dt.year
 # Sidebar Filters
 st.sidebar.header("Please Filter Here:")
 
+# Year filter
+available_years = cases_data["Year"].dropna().unique()
+selected_years = st.sidebar.multiselect("Select the Year:", options=available_years)
 
+# Country filter
+available_countries = cases_data["Country"].unique()
+selected_countries = st.sidebar.multiselect("Select the Country:", options=available_countries)
+
+# Filter data based on sidebar input
+start_time = time.time()
+year_filter = cases_data[cases_data["Year"].isin(selected_years)] if selected_years else cases_data
+country_filter = year_filter[year_filter["Country"].isin(selected_countries)] if selected_countries else year_filter
+country_filter2020 = cases_data_2020[cases_data_2020["Country"].isin(selected_countries)] if selected_countries else cases_data_2020
+end_time = time.time()
+print(f"Sidebar filtering time: {end_time - start_time} seconds")
+elif menu_choice == "Effectiveness of Vaccines":
+    st.title("Effectiveness of Vaccines")
+    effectiveness_of_vaccine_chart()
 
 # Date range filter
 min_date = cases_data["Date"].min().to_pydatetime()
@@ -78,6 +95,10 @@ selected_date_range = st.sidebar.slider("Select the Date Range:", min_value=min_
 
 date_filter = country_filter[(country_filter["Date"] >= selected_date_range[0]) & (country_filter["Date"] <= selected_date_range[1])].copy()
 
+with st.sidebar:
+    menu_choice = option_menu("Main Menu", ["Home", 'Death Rate Charts', "Weekly Confirmed Case", 'Weekly Recovered Case', 'Cases by Country',
+                                            'Total Death VS Cases', 'Vaccine by Country', 'Effectiveness of Vaccines'], 
+        icons=['house', 'graph-down', 'virus', 'bandaid', 'globe-americas','heart-pulse', 'journals', 'clipboard-heart'], menu_icon="cast", default_index=1)
 
 # Define chart functions
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
@@ -493,7 +514,10 @@ elif menu_choice == "Total Death VS Cases":
 elif menu_choice == "Vaccine by Country":
     st.title("Vaccine by Country Chart")
     vaccine_by_country_chart()
-    
+
+elif menu_choice == "Effectiveness of Vaccines":
+    st.title("Effectiveness of Vaccines")
+    effectiveness_of_vaccine_chart()
 
 
 # Footer
