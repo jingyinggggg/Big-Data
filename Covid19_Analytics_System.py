@@ -132,55 +132,46 @@ def descriptive_analysis_chart():
 # 2 ------------------------- Weekly Confirmed Chart ---------------------------------------------
 
 def weekly_confirmed_chart():
-    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data, x='Date', y='Daily_New_Cases', title='Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
+    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    fig = px.line(weekly_confirmed_data, x='Date', y='Confirmed', title='Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
 def actual_weekly_confirmed_chart_2020():
-    # Filter data for the year 2020 based on the selected countries
-    filtered_data_2020 = date_filter[date_filter['Year'] == 2020]
-    weekly_confirmed_data_2020 = filtered_data_2020.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
-    fig = px.line(weekly_confirmed_data_2020, x='Date', y='Daily_New_Cases', title='Actual Weekly New Cases for 2020', labels={'Daily_New_Cases': 'Weekly Cases'})
+    weekly_confirmed_data_2020 = cases_data_2020.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    fig = px.bar(weekly_confirmed_data_2020, x='Date', y='Confirmed', title='Actual Weekly New Cases for 2020', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
 def predict_weekly_confirmed():
-    # Calculate weekly sum of 'Daily_New_Cases'
-    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
-
-    # Add features like 'WeekOfYear', 'Season', etc. if applicable
+    # Resample daily data to weekly and sum
+    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
     weekly_confirmed_data['WeekOfYear'] = weekly_confirmed_data['Date'].dt.isocalendar().week
-    # Add other features here based on your analysis
+    X = weekly_confirmed_data[['WeekOfYear']]
+    y = weekly_confirmed_data['Confirmed']
 
-    # Define features (X) and target (y)
-    X = weekly_confirmed_data[['WeekOfYear']]  # Include other features here if added
-    y = weekly_confirmed_data['Daily_New_Cases']
-
-    # Initialize Linear Regression model
-    model = LinearRegression()
-
-    # Fit the model
+    # Train Random Forest model
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
 
-    # Predicting for 2021 weeks
-    weeks_in_2021 = pd.DataFrame({'WeekOfYear': np.arange(1, 53)})  # Generate weeks for 2021
+    # Create a DataFrame for 2021 prediction
+    weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
     predicted_confirmed_2021 = model.predict(weeks_in_2021)
+    predicted_data_2021 = pd.DataFrame({
+        'Week': weeks_in_2021.flatten(),
+        'Predicted New Cases': predicted_confirmed_2021
+    })
 
-    # Calculate MSE on training data (optional)
-    y_pred_train = model.predict(X)
-    mse_train = mean_squared_error(y, y_pred_train)
-    st.write(f"Mean Squared Error on training data: {mse_train}")
-
-    # Create a plot using Plotly Express
-    predicted_data_2021 = pd.DataFrame({'Week': weeks_in_2021['WeekOfYear'], 'Predicted New Cases': predicted_confirmed_2021})
-    fig = px.bar(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
+    # Plot predicted weekly new cases for 2021 using Plotly Express
+    fig = px.line(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
     st.plotly_chart(fig)
 
 def descriptive_analysis_confirmed():
-    weekly_confirmed_data = date_filter.set_index('Date')['Daily_New_Cases'].resample('W').sum().reset_index()
+    weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
+    
     st.subheader("Descriptive Analysis of Weekly New Cases:")
-    st.write(weekly_confirmed_data['Daily_New_Cases'].describe())
+    st.write(weekly_confirmed_data['Confirmed'].describe())
+    
     st.subheader("Box Plot of Weekly New Cases")
-    fig = px.box(weekly_confirmed_data, y='Daily_New_Cases', title='Box Plot of Weekly New Cases', labels={'Daily_New_Cases': 'Weekly Cases'})
+    fig = px.box(weekly_confirmed_data, y='Confirmed', title='Box Plot of Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
     
 # 3 ------------------------- Weekly Recovered Chart ---------------------------------------------
@@ -202,18 +193,28 @@ def actual_weekly_recovered_chart_2020():
     st.plotly_chart(fig)
 
 def predict_weekly_recovered():
+    # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
+    
     weekly_recovered_data['WeekOfYear'] = weekly_recovered_data['Week_End'].dt.isocalendar().week
     X = weekly_recovered_data[['WeekOfYear']]
     y = weekly_recovered_data['Recovered']
-    model = LinearRegression()
+
+    # Train Random Forest model
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
+
+    # Create a DataFrame for 2021 prediction
     weeks_in_2021 = np.arange(1, 53).reshape(-1, 1)
     predicted_recovered_2021 = model.predict(weeks_in_2021)
-    predicted_data_2021 = pd.DataFrame({'Week': weeks_in_2021.flatten(), 'Predicted Recovered Cases': predicted_recovered_2021})
-    fig = px.bar(predicted_data_2021, x='Week', y='Predicted Recovered Cases', title='Predicted Weekly Recovered Cases for 2021')
-    st.plotly_chart(fig)
+    predicted_data_2021 = pd.DataFrame({
+        'Week': weeks_in_2021.flatten(),
+        'Predicted Recovered': predicted_recovered_2021
+    })
 
+    # Plot predicted weekly recovered cases for 2021 using Plotly Express
+    fig = px.line(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
+    st.plotly_chart(fig)
 
 def descriptive_analysis_recovered():
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
