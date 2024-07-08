@@ -140,7 +140,7 @@ def death_rate_chart():
 
 @profile    
 def actual_death_rate_chart():
-    filtered_data = country_filter.groupby('Date')[country_filter.select_dtypes(include='number').columns].sum().reset_index()
+    filtered_data = country_filter2020.groupby('Date')[country_filter2020.select_dtypes(include='number').columns].sum().reset_index()
     filtered_data['Death Rate'] = filtered_data['Deaths']
     fig = px.bar(filtered_data, x='Date', y='Death Rate', title='Actual Death Rate Over Time (2020)')
     st.plotly_chart(fig)
@@ -195,7 +195,7 @@ def is_stationary(data):
 @profile
 def descriptive_analysis_chart():
     st.subheader("Descriptive Analysis of Death Rate (2020):")
-    st.write(cases_data_2020['Deaths'].describe())
+    st.write(country_filter2020['Deaths'].describe())
 
 # 2 ------------------------- Weekly Confirmed Chart ---------------------------------------------
 @profile
