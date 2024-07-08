@@ -262,19 +262,19 @@ date_filter['Week_End'] = date_filter['Date'].apply(get_week_end)
 def weekly_recovered_chart():
     # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
-    
-    fig = px.line(weekly_recovered_data, x='Week_End', y='Recovered', title='Weekly Recovered Cases')
+
+    fig = px.line(weekly_recovered_data, x='Week_End', y='Recovered', title='Weekly Recovered Cases', labels={'Recovered': 'Cumulative Weekly Recovered Cases'})
     st.plotly_chart(fig)
 
 @profile
 def actual_weekly_recovered_chart_2020():
     # Filter the data for the year 2020
     data_2020 = date_filter[date_filter['Date'].dt.year == 2020]
-    
-    # Group by the week end date and sum the recovered cases
+
+Group by the week end date and sum the recovered cases
     weekly_recovered_data_2020 = data_2020.groupby('Week_End')['Recovered'].sum().reset_index()
-    
-    fig = px.line(weekly_recovered_data_2020, x='Week_End', y='Recovered', title='Actual Weekly Recovered Cases for 2020')
+
+    fig = px.line(weekly_recovered_data_2020, x='Week_End', y='Recovered', title='Actual Weekly Recovered Cases for 2020', labels={'Recovered': 'Cumulative Weekly Recovered Cases'})
     st.plotly_chart(fig)
 
 @profile
