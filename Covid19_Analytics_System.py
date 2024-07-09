@@ -2,7 +2,6 @@ import streamlit as st  # For the dashboard
 import pandas as pd  # To read data
 import plotly.express as px  # To create charts
 from streamlit_option_menu import option_menu  # To handle menu option
-from sklearn.linear_model import LinearRegression  # For linear regression
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
 from pymongo import MongoClient # To connect to MongoDB
@@ -43,19 +42,6 @@ def preprocess_data(cases_data):
     cases_data['Year'] = cases_data['Date'].dt.year
     return cases_data[cases_data['Year'] == 2020].copy()
 
-# Caching Model Training
-@st.cache_data
-def train_model(cases_data_2020):
-    cases_data_2020['DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
-    
-    X = cases_data_2020[['DayOfYear']]
-    y = cases_data_2020['Deaths']
-    
-    model = LinearRegression()
-    model.fit(X, y)
-    
-    return model
-
 # Load and process data
 cases_data, vaccine_data = load_data()
 cases_data_2020 = preprocess_data(cases_data)
@@ -84,9 +70,6 @@ country_filter = year_filter[year_filter["Country"].isin(selected_countries)] if
 country_filter2020 = cases_data_2020[cases_data_2020["Country"].isin(selected_countries)] if selected_countries else cases_data_2020
 end_time = time.time()
 print(f"Sidebar filtering time: {end_time - start_time} seconds")
-elif menu_choice == "Effectiveness of Vaccines":
-    st.title("Effectiveness of Vaccines")
-    effectiveness_of_vaccine_chart()
 
 # Date range filter
 min_date = cases_data["Date"].min().to_pydatetime()
@@ -95,6 +78,7 @@ selected_date_range = st.sidebar.slider("Select the Date Range:", min_value=min_
 
 date_filter = country_filter[(country_filter["Date"] >= selected_date_range[0]) & (country_filter["Date"] <= selected_date_range[1])].copy()
 
+# Define sidebar
 with st.sidebar:
     menu_choice = option_menu("Main Menu", ["Home", 'Death Rate Charts', "Weekly Confirmed Case", 'Weekly Recovered Case', 'Cases by Country',
                                             'Total Death VS Cases', 'Vaccine by Country', 'Effectiveness of Vaccines'], 
@@ -102,25 +86,6 @@ with st.sidebar:
 
 # Define chart functions
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
-
-cases_data_2020.loc[:, 'DayOfYear'] = cases_data_2020['Date'].dt.dayofyear
-
-X = cases_data_2020[['DayOfYear']]
-y = cases_data_2020['Deaths']
-start_time = time.time()
-model = LinearRegression()
-model.fit(X, y)
-end_time = time.time()
-print(f"Linear Regression training time: {end_time - start_time} seconds")
-
-# Create a DataFrame for 2021 prediction
-days_in_2021 = np.arange(1, 366).reshape(-1, 1)
-X_predict = pd.DataFrame(days_in_2021, columns=['DayOfYear'])
-predicted_deaths_2021 = model.predict(X_predict)
-predicted_data_2021 = pd.DataFrame({
-    'Date': pd.date_range(start='2021-01-01', end='2021-12-31'),
-    'Predicted Deaths': predicted_deaths_2021
-})
 
 def profile(func):
     def wrapper(*args, **kwargs):
@@ -262,7 +227,7 @@ date_filter['Week_End'] = date_filter['Date'].apply(get_week_end)
 def weekly_recovered_chart():
     # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
-
+    
     fig = px.line(weekly_recovered_data, x='Week_End', y='Recovered', title='Weekly Recovered Cases', labels={'Recovered': 'Cumulative Weekly Recovered Cases'})
     st.plotly_chart(fig)
 
@@ -270,10 +235,10 @@ def weekly_recovered_chart():
 def actual_weekly_recovered_chart_2020():
     # Filter the data for the year 2020
     data_2020 = date_filter[date_filter['Date'].dt.year == 2020]
-
-Group by the week end date and sum the recovered cases
+    
+    # Group by the week end date and sum the recovered cases
     weekly_recovered_data_2020 = data_2020.groupby('Week_End')['Recovered'].sum().reset_index()
-
+    
     fig = px.line(weekly_recovered_data_2020, x='Week_End', y='Recovered', title='Actual Weekly Recovered Cases for 2020', labels={'Recovered': 'Cumulative Weekly Recovered Cases'})
     st.plotly_chart(fig)
 
@@ -514,11 +479,10 @@ elif menu_choice == "Total Death VS Cases":
 elif menu_choice == "Vaccine by Country":
     st.title("Vaccine by Country Chart")
     vaccine_by_country_chart()
-
+    
 elif menu_choice == "Effectiveness of Vaccines":
     st.title("Effectiveness of Vaccines")
     effectiveness_of_vaccine_chart()
-
 
 # Footer
 footer = """<style>
