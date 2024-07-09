@@ -7,6 +7,8 @@ from statsmodels.tsa.arima.model import ARIMA  # For ARIMA model
 from pymongo import MongoClient # To connect to MongoDB
 from sklearn.ensemble import RandomForestRegressor
 import time
+import tracemalloc
+import functools
 
 # Page configuration
 st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layout="wide")
@@ -15,35 +17,60 @@ st.set_page_config(page_title="Covid-19 Analytics", page_icon=":syringe:", layou
 with open('style.css') as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+print("-" * 110)
+def profile_and_measure_memory(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Start timing
+        start_time = time.time()
+        
+        # Start memory tracking
+        tracemalloc.start()
+        
+        try:
+            # Execute the function
+            result = func(*args, **kwargs)
+        finally:
+            # Stop memory tracking
+            current, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            
+            # Stop timing
+            end_time = time.time()
+            execution_time = end_time - start_time
+            
+            # Print results
+            print(f"Execution time for {func.__name__}: {execution_time:.4f} seconds")
+            print(f"Function {func.__name__} - Current memory usage: {current / 10**6}MB; Peak memory usage: {peak / 10**6}MB\n")
+        
+        return result
+    return wrapper
+
 @st.cache_data
-def load_data():
-    # Load datasets
-    start_time = time.time()
+@profile_and_measure_memory
+def load_and_processing_data():
+    # Load datasets 
     client = MongoClient("mongodb://localhost:27017")
     db = client["vaccine_analysis"]
     
     cases_data = pd.DataFrame(list(db["aggregated_data_cleaned"].find()))
-    vaccine_data = pd.DataFrame(list(db["vaccine_data_cleaned"].find()))
-    end_time = time.time()
-    print(f"Data loading time: {end_time - start_time} seconds")
+    vaccine_data = pd.DataFrame(list(db["vaccine_data_cleaned"].find())) 
 
-    # Process Data for Analysis
-    start_time = time.time()
+    # Process Data for Analysis 
     cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
-    vaccine_data['date'] = pd.to_datetime(vaccine_data['date'], format='%Y-%m-%d', errors='coerce')
-    end_time = time.time()
-    print(f"Data processing time: {end_time - start_time} seconds")
+    vaccine_data['date'] = pd.to_datetime(vaccine_data['date'], format='%Y-%m-%d', errors='coerce') 
     
     return cases_data, vaccine_data 
 
 @st.cache_data
+@profile_and_measure_memory
 def preprocess_data(cases_data):
     cases_data['Date'] = pd.to_datetime(cases_data['Date'], format='%Y-%m-%d', errors='coerce')
     cases_data['Year'] = cases_data['Date'].dt.year
     return cases_data[cases_data['Year'] == 2020].copy()
 
 # Load and process data
-cases_data, vaccine_data = load_data()
+cases_data, vaccine_data = load_and_processing_data()
 cases_data_2020 = preprocess_data(cases_data)
 
 # Extract year from date
@@ -63,13 +90,10 @@ selected_years = st.sidebar.multiselect("Select the Year:", options=available_ye
 available_countries = cases_data["Country"].unique()
 selected_countries = st.sidebar.multiselect("Select the Country:", options=available_countries)
 
-# Filter data based on sidebar input
-start_time = time.time()
+# Filter data based on sidebar input 
 year_filter = cases_data[cases_data["Year"].isin(selected_years)] if selected_years else cases_data
 country_filter = year_filter[year_filter["Country"].isin(selected_countries)] if selected_countries else year_filter
-country_filter2020 = cases_data_2020[cases_data_2020["Country"].isin(selected_countries)] if selected_countries else cases_data_2020
-end_time = time.time()
-print(f"Sidebar filtering time: {end_time - start_time} seconds")
+country_filter2020 = cases_data_2020[cases_data_2020["Country"].isin(selected_countries)] if selected_countries else cases_data_2020 
 
 # Date range filter
 min_date = cases_data["Date"].min().to_pydatetime()
@@ -87,17 +111,7 @@ with st.sidebar:
 # Define chart functions
 # 1 ------------------------- Death Rate Chart ---------------------------------------------
 
-def profile(func):
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f"Execution time for {func.__name__}: {execution_time:.4f} seconds")
-        return result
-    return wrapper
-
-@profile
+@profile_and_measure_memory
 def death_rate_chart():
     filtered_data = date_filter.groupby('Date')[date_filter.select_dtypes(include='number').columns].sum().reset_index()
 
@@ -105,14 +119,14 @@ def death_rate_chart():
                   labels={'Deaths': 'Cumulative Deaths'})
     st.plotly_chart(fig)
 
-@profile    
+@profile_and_measure_memory
 def actual_death_rate_chart():
     filtered_data = country_filter2020.groupby('Date')[country_filter2020.select_dtypes(include='number').columns].sum().reset_index()
     filtered_data['Death Rate'] = filtered_data['Deaths']
     fig = px.bar(filtered_data, x='Date', y='Death Rate', title='Actual Death Rate Over Time (2020)')
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def predicted_death_rate_chart():
     # Aggregate daily death counts to ensure unique dates
     daily_deaths = country_filter2020.groupby('Date')['Deaths'].sum()
@@ -159,25 +173,25 @@ def is_stationary(data):
     result = adfuller(data)
     return result[1] <= 0.05  # p-value less than or equal to 0.05 indicates stationarity
 
-@profile
+@profile_and_measure_memory
 def descriptive_analysis_chart():
     st.subheader("Descriptive Analysis of Death Rate (2020):")
     st.write(country_filter2020['Deaths'].describe())
 
 # 2 ------------------------- Weekly Confirmed Chart ---------------------------------------------
-@profile
+@profile_and_measure_memory
 def weekly_confirmed_chart():
     weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
     fig = px.line(weekly_confirmed_data, x='Date', y='Confirmed', title='Weekly New Cases', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def actual_weekly_confirmed_chart_2020():
     weekly_confirmed_data_2020 = cases_data_2020.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
     fig = px.line(weekly_confirmed_data_2020, x='Date', y='Confirmed', title='Actual Weekly New Cases for 2020', labels={'Confirmed': 'Cumulative Weekly Cases'})
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def predict_weekly_confirmed():
     # Resample daily data to weekly and sum
     weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
@@ -203,7 +217,7 @@ def predict_weekly_confirmed():
     fig = px.line(predicted_data_2021, x='Week', y='Predicted New Cases', title='Predicted Weekly New Cases for 2021')
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def descriptive_analysis_confirmed():
     weekly_confirmed_data = date_filter.set_index('Date')['Confirmed'].resample('W').sum().reset_index()
     
@@ -223,7 +237,7 @@ def get_week_end(date):
 # Add a new column to hold the week end date
 date_filter['Week_End'] = date_filter['Date'].apply(get_week_end)
 
-@profile
+@profile_and_measure_memory
 def weekly_recovered_chart():
     # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
@@ -231,7 +245,7 @@ def weekly_recovered_chart():
     fig = px.line(weekly_recovered_data, x='Week_End', y='Recovered', title='Weekly Recovered Cases', labels={'Recovered': 'Cumulative Weekly Recovered Cases'})
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def actual_weekly_recovered_chart_2020():
     # Filter the data for the year 2020
     data_2020 = date_filter[date_filter['Date'].dt.year == 2020]
@@ -242,7 +256,7 @@ def actual_weekly_recovered_chart_2020():
     fig = px.line(weekly_recovered_data_2020, x='Week_End', y='Recovered', title='Actual Weekly Recovered Cases for 2020', labels={'Recovered': 'Cumulative Weekly Recovered Cases'})
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def predict_weekly_recovered():
     # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
@@ -269,7 +283,7 @@ def predict_weekly_recovered():
     fig = px.line(predicted_data_2021, x='Week', y='Predicted Recovered', title='Predicted Weekly Recovered Cases for 2021')
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def descriptive_analysis_recovered():
     # Group by the week end date and sum the recovered cases
     weekly_recovered_data = date_filter.groupby('Week_End')['Recovered'].sum().reset_index()
@@ -280,7 +294,7 @@ def descriptive_analysis_recovered():
 
         
 # 4 ------------------------- Total death vs cases chart ---------------------------------------------
-@profile
+@profile_and_measure_memory
 def total_deaths_vs_cases_chart(cases_data):
     # Group data
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
@@ -311,14 +325,14 @@ def total_deaths_vs_cases_chart(cases_data):
     # Display the chart
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def descriptive_analysis_deaths():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_deaths = total_data['Daily_Deaths'].describe()
     st.write("Descriptive Analysis of Total Deaths:")
     st.write(descriptive_stats_deaths)
 
-@profile
+@profile_and_measure_memory
 def descriptive_analysis_cases():
     total_data = cases_data.groupby('Country').agg({'Daily_Deaths': 'sum', 'Daily_New_Cases': 'sum'}).reset_index()
     descriptive_stats_cases = total_data['Daily_New_Cases'].describe()
@@ -326,7 +340,7 @@ def descriptive_analysis_cases():
     st.write(descriptive_stats_cases)
     
 # # 5 ------------------------- Case by Country ---------------------------------------------
-@profile
+@profile_and_measure_memory
 def cases_by_country_chart():
     cases_by_country_data = cases_data.groupby('Country')['Daily_New_Cases'].sum().reset_index()
     fig = px.choropleth(cases_by_country_data, locations='Country', locationmode='country names', 
@@ -335,7 +349,7 @@ def cases_by_country_chart():
                         color_continuous_scale=px.colors.sequential.Plasma)
     st.plotly_chart(fig)
 
-@profile
+@profile_and_measure_memory
 def descriptive_analysis_cases_by_country():
     cases_by_country_data = cases_data.groupby('Country')['Daily_New_Cases'].sum().reset_index()
     
@@ -345,7 +359,7 @@ def descriptive_analysis_cases_by_country():
     st.write(descriptive_stats_cases_by_country)
     
 # # 6 ------------------------- Vaccine by country ---------------------------------------------
-@profile    
+@profile_and_measure_memory
 def vaccine_by_country_chart():
     vaccine_by_country_data = vaccine_data.groupby('country')['vaccines'].first().reset_index()
     fig = px.bar(vaccine_by_country_data, x='country', y='vaccines', title='Vaccine Types by Country', 
@@ -353,7 +367,7 @@ def vaccine_by_country_chart():
     st.plotly_chart(fig)
 
 # # 7 ------------------------- Effectiveness of country ---------------------------------------------
-@profile
+@profile_and_measure_memory
 def effectiveness_of_vaccine_chart():
     # Group by country and calculate the death rate and most used vaccine
     death_rate_data = date_filter.groupby('Country')['Deaths'].sum().reset_index()
